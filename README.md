@@ -2,6 +2,8 @@
 
 A Streamlit-based web application that generates personalized interview questions using Groq API and LLaMA-3-70B-Instruct model.
 
+🌐 **Live Demo:** [https://interview-questions-cjdkvgk3cudkfaxrwunkvt.streamlit.app/](https://interview-questions-cjdkvgk3cudkfaxrwunkvt.streamlit.app/)
+
 ## Features
 
 - **Customizable Inputs:**
@@ -46,6 +48,12 @@ Interview Questions/
    ```
 
 ## Usage
+
+### Option 1: Use the Live Demo
+- Visit the live application: [https://interview-questions-cjdkvgk3cudkfaxrwunkvt.streamlit.app/](https://interview-questions-cjdkvgk3cudkfaxrwunkvt.streamlit.app/)
+- No installation required!
+
+### Option 2: Run Locally
 
 1. **Run the Streamlit application:**
    ```bash
