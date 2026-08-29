@@ -11,7 +11,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from backend.question_generator import QuestionGenerator
 from config.config import (
-    GROQ_API_KEY,
+    get_api_key,
+    MODEL_NAME,
     EXPERIENCE_LEVELS,
     DIFFICULTY_LEVELS,
     TOPIC_FOCUS_OPTIONS,
@@ -45,7 +46,7 @@ def main():
     with col_header2:
         st.markdown("# 🚀 Interview Question Generator")
         st.markdown("### Generate personalized interview questions tailored to your needs")
-        st.markdown("**Powered by LLaMA-3-70B-Instruct via Groq API**")
+        st.markdown(f"**Powered by {MODEL_NAME} via Groq API**")
     
     st.divider()
     
@@ -56,6 +57,11 @@ def main():
     with st.sidebar:
         st.markdown("## ⚙️ Configuration Settings")
         st.markdown("---")
+        
+        # Check API key status
+        current_api_key = get_api_key()
+        if not current_api_key:
+            st.warning("⚠️ **Groq API Key Missing**\nConfigure `GROQ_API_KEY` in environment variables or Streamlit secrets.")
         
         # Job Role Input in a container
         with st.container():
@@ -157,8 +163,14 @@ def main():
         # Show loading
         with st.spinner("🤖 Generating interview questions... This may take a few seconds."):
             try:
+                # Retrieve current API key
+                api_key = get_api_key()
+                if not api_key:
+                    st.error("❌ **Groq API Key is missing!** Please set the `GROQ_API_KEY` environment variable, add it to Streamlit Secrets, or place it in a `Groq api key.txt` file.")
+                    return
+                
                 # Initialize generator
-                generator = QuestionGenerator(GROQ_API_KEY)
+                generator = QuestionGenerator(api_key)
                 
                 # Generate questions
                 result = generator.generate(
@@ -371,7 +383,13 @@ def display_results(data: dict):
                 with st.chat_message("assistant"):
                     with st.spinner("Thinking..."):
                         try:
-                            generator = QuestionGenerator(GROQ_API_KEY)
+                            # Retrieve current API key
+                            api_key = get_api_key()
+                            if not api_key:
+                                st.error("❌ **Groq API Key is missing!**")
+                                return
+                                
+                            generator = QuestionGenerator(api_key)
                             metadata = data.get("metadata", {})
                             
                             response = generator.answer_followup(

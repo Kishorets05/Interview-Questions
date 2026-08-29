@@ -3,22 +3,37 @@ Configuration file
 """
 import os
 
-# Groq API Key - read from environment variable or file
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+def get_api_key():
+    # 1. Try to read from Streamlit secrets first if available
+    try:
+        import streamlit as st
+        if "GROQ_API_KEY" in st.secrets:
+            return st.secrets["GROQ_API_KEY"]
+    except Exception:
+        pass
 
-if not GROQ_API_KEY:
-    # Try to read from file
+    # 2. Try to read from environment variable
+    api_key = os.getenv("GROQ_API_KEY")
+    if api_key:
+        return api_key
+
+    # 3. Try to read from local file
     key_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Groq api key.txt")
     if os.path.exists(key_file):
-        with open(key_file, "r") as f:
-            GROQ_API_KEY = f.read().strip()
-    
-    if not GROQ_API_KEY:
-        raise ValueError("GROQ_API_KEY environment variable is not set and Groq api key.txt file not found")
+        try:
+            with open(key_file, "r") as f:
+                return f.read().strip()
+        except Exception:
+            pass
+
+    return None
+
+# Groq API Key - dynamically resolved
+GROQ_API_KEY = get_api_key()
 
 
 # Model Configuration
-MODEL_NAME = "llama-3.1-8b-instant"
+MODEL_NAME = "llama-3.3-70b-versatile"
 
 # Default Settings
 DEFAULT_NUM_QUESTIONS = 3

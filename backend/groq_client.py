@@ -3,8 +3,9 @@ Groq API Client for generating interview questions
 """
 import os
 import re
-from groq import Groq
+from groq import Groq, APIError, APIConnectionError, RateLimitError, AuthenticationError, NotFoundError
 from typing import Dict, List, Optional
+from config.config import MODEL_NAME
 
 
 class GroqClient:
@@ -18,7 +19,7 @@ class GroqClient:
             api_key: Groq API key
         """
         self.client = Groq(api_key=api_key)
-        self.model = "llama-3.1-8b-instant"
+        self.model = MODEL_NAME
     
     def generate_interview_questions(
         self,
@@ -72,6 +73,16 @@ class GroqClient:
             # Parse the response (assuming structured format)
             return self._parse_response(content)
             
+        except AuthenticationError:
+            raise Exception("Invalid Groq API key. Please check your configuration and verify that your API key is correct and active.")
+        except NotFoundError:
+            raise Exception(f"The model '{self.model}' is not available or you do not have access to it. Please check your account/model access.")
+        except RateLimitError:
+            raise Exception("Groq API rate limit exceeded. Please wait a moment before trying again.")
+        except APIConnectionError:
+            raise Exception("Failed to connect to the Groq API. Please verify your internet connection.")
+        except APIError as e:
+            raise Exception(f"Groq API error: {e.message}")
         except Exception as e:
             raise Exception(f"Error generating questions: {str(e)}")
     
@@ -328,6 +339,16 @@ Please provide a helpful, detailed answer to their follow-up question. Be specif
             
             return response.choices[0].message.content
             
+        except AuthenticationError:
+            raise Exception("Invalid Groq API key. Please check your configuration.")
+        except NotFoundError:
+            raise Exception(f"The model '{self.model}' is not available.")
+        except RateLimitError:
+            raise Exception("Groq API rate limit exceeded. Please try again in a moment.")
+        except APIConnectionError:
+            raise Exception("Failed to connect to the Groq API. Please verify your internet connection.")
+        except APIError as e:
+            raise Exception(f"Groq API error: {e.message}")
         except Exception as e:
-            return f"Error generating response: {str(e)}"
+            raise Exception(f"Error generating response: {str(e)}")
 
