@@ -273,10 +273,6 @@ def main():
                 except Exception as e:
                     st.error(f"❌ An error occurred: {str(e)}")
                     return
-                
-            except Exception as e:
-                st.error(f"❌ An error occurred: {str(e)}")
-                return
     
     # Display results
     if st.session_state.interview_mode == "Mock Interview" and st.session_state.interview_started:
