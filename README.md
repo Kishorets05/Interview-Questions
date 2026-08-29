@@ -1,8 +1,10 @@
-# Interview Question Generator
+# AI Interview Questions Generator
 
-A Streamlit-based web application that generates personalized interview questions using Groq API and LLaMA-3-70B-Instruct model.
+A Streamlit-based web application that generates personalized interview questions, handles mock interview practice, and grades candidate responses using the Groq API and Large Language Models (LLMs).
 
 🌐 **Live Demo:** [https://interview-questions-cjdkvgk3cudkfaxrwunkvt.streamlit.app/](https://interview-questions-cjdkvgk3cudkfaxrwunkvt.streamlit.app/)
+
+---
 
 ## Features
 
@@ -10,34 +12,65 @@ A Streamlit-based web application that generates personalized interview question
   - Job role (e.g., Java Developer, Python Developer)
   - Experience level (Fresher, 1 Year, 2 Years, etc.)
   - Difficulty level (Easy, Medium, Hard)
-  - Optional topic focus (OOP, DBMS, DSA, CN, etc.)
+  - Topic focus (OOP, DBMS, DSA, CN, etc.)
   - Adjustable number of questions (3-10)
 
-- **Comprehensive Outputs:**
-  - Interview questions tailored to your inputs
-  - Clear, structured answers
-  - Difficulty-appropriate explanations
-  - Tips to answer effectively
-  - Common mistakes to avoid
-  - Follow-up questions for deeper understanding
+- **Optional Resume Personalization:**
+  - PDF Resume Upload: Extracts text dynamically to generate questions tailored specifically to the technologies, projects, and skills mentioned in your resume.
+
+- **Dual Mode Support:**
+  - **Question Generator Mode:** Generates a list of questions, complete with reference answers, comprehensive explanations, actionable tips, common mistakes to avoid, and follow-up questions.
+  - **Mock Interview Mode:** Conducts an interactive interview session. Candidate submits answers, and the AI evaluates them in real-time, assigning numeric scores and qualitative feedback.
+
+- **AI Answer Evaluation:**
+  - Scores responses out of 10 across four key dimensions: **Technical Accuracy**, **Relevance**, **Completeness**, and **Clarity**, alongside an **Overall Score** and detailed feedback.
+
+- **Session-Based Progress Tracking:**
+  - Maintains state dynamically using `st.session_state` to track current questions, answer history, scores, and compile a finalRecruiter Performance Summary at the end of the interview.
+
+---
+
+## Technologies Used
+
+- **Streamlit:** Frontend web framework for rendering UI components, handling file uploading, and tracking session states.
+- **Groq API:** Ultra-high-speed inference API client for LLM interaction.
+- **Large Language Models (LLMs):** Powered by `openai/gpt-oss-120b` for high-quality structured output generation.
+- **pypdf:** Lightweight library used for extracting text from uploaded candidate PDF resumes.
+- **Prompt Engineering:** Structuring system instructions, candidate context, and parameters to ensure strict structured output and consistent evaluation criteria.
+- **pytest:** Automated test runner used for mocking API requests and validating core backend services.
+
+---
 
 ## Project Structure
 
-```
+```text
 Interview Questions/
-├── app.py                 # Main Streamlit application entry point
-├── requirements.txt       # Python dependencies
-├── README.md             # This file
+│
+├── app.py                     # Main Streamlit UI and session management
+│
 ├── backend/
-│   ├── groq_client.py    # Groq API client
-│   └── question_generator.py  # Question generation service
-└── config/
-    └── config.py         # Configuration settings
+│   ├── groq_client.py         # Existing Groq API client with error handling
+│   ├── question_generator.py  # Question generation service
+│   ├── resume_parser.py       # PDF resume text extraction
+│   └── evaluator.py           # Answer evaluation and recruting summary
+│
+├── config/
+│   └── config.py              # Configuration and dynamic key resolution
+│
+├── tests/                     # Automated testing suite
+│   ├── test_question_generator.py
+│   ├── test_resume_parser.py
+│   └── test_evaluator.py
+│
+├── requirements.txt           # Project dependencies
+└── README.md                  # This file
 ```
 
-## Installation
+---
 
-1. **Clone or navigate to the project directory:**
+## Installation & Setup
+
+1. **Clone and navigate to the project directory:**
    ```bash
    cd "Interview Questions"
    ```
@@ -47,70 +80,56 @@ Interview Questions/
    pip install -r requirements.txt
    ```
 
-## Usage
+3. **Configure your API Key:**
+   Set the `GROQ_API_KEY` environment variable:
+   - **Windows PowerShell:** `$env:GROQ_API_KEY="your_api_key_here"`
+   - **Windows CMD:** `set GROQ_API_KEY=your_api_key_here`
+   - **Linux/macOS Bash:** `export GROQ_API_KEY="your_api_key_here"`
+   - **Alternative:** Create a file named `Groq api key.txt` in the project root containing your API key.
 
-### Option 1: Use the Live Demo
-- Visit the live application: [https://interview-questions-cjdkvgk3cudkfaxrwunkvt.streamlit.app/](https://interview-questions-cjdkvgk3cudkfaxrwunkvt.streamlit.app/)
-- No installation required!
-
-### Option 2: Run Locally
-
-1. **Run the Streamlit application:**
+4. **Run the Streamlit application:**
    ```bash
    streamlit run app.py
    ```
 
-2. **Open your browser:**
-   - The app will automatically open in your default browser
-   - Or navigate to `http://localhost:8501`
+---
 
-3. **Fill in the form:**
-   - Enter your job role
-   - Select your experience level
-   - Choose difficulty level
-   - Optionally select a topic focus
-   - Adjust the number of questions
+## Automated Testing
 
-4. **Generate questions:**
-   - Click "Generate Questions" button
-   - Wait for the AI to generate questions (may take a few seconds)
+Automated tests are written with `pytest` and mock the LLM responses to avoid hitting API rate limits or consuming tokens.
 
-5. **View results:**
-   - Questions will be displayed with expandable sections for:
-     - Answers
-     - Explanations
-     - Tips
-     - Common mistakes
-     - Follow-up questions
+### Run Tests
 
-## Configuration
-
-The API key is configured in `config/config.py`. You can also set it as an environment variable:
-
+Execute the following command in the project root:
 ```bash
-export GROQ_API_KEY="your_api_key_here"
+python -m pytest
 ```
 
-## Technologies Used
+### Areas Covered by Tests
 
-- **Streamlit**: Web framework for the UI
-- **Groq API**: For AI-powered question generation
-- **LLaMA-3-70B-Instruct**: Large language model for generating questions
+1. **Resume Parser (`test_resume_parser.py`):**
+   - Validates correct PDF text extraction.
+   - Verifies appropriate exceptions for empty files, invalid PDFs, and missing inputs.
 
-## Notes
+2. **Question Generator (`test_question_generator.py`):**
+   - Verifies that job details, experience levels, difficulty, and selected topics are correctly formatted in prompt generation.
+   - Confirms that resume context is appended only when provided.
+   - Assures valid JSON is parsed correctly, while invalid JSON is recovered gracefully.
 
-- The application uses the Groq API which requires an internet connection
-- Response times may vary based on API load
-- Generated questions are AI-powered and should be reviewed for accuracy
+3. **Answer Evaluator (`test_evaluator.py`):**
+   - Verifies score range clamping (ensuring overall scores remain strictly between `0` and `10`).
+   - Confirms invalid LLM evaluation responses are handled safely with fallback grades.
+   - Validates that empty candidate answers immediately receive `0` without making external API calls.
+   - Validates session tracking math (calculating the correct question counts and average overall scores).
 
-## Troubleshooting
+---
 
-If you encounter errors:
-1. Ensure all dependencies are installed: `pip install -r requirements.txt`
-2. Check your internet connection
-3. Verify the API key is correct
-4. Check the console for detailed error messages
+## Error Handling
 
-
-
-
+The application implements granular exception handling for reliability:
+- **AuthenticationError:** Warns the user of an invalid API key, with setup instructions.
+- **NotFoundError:** Gracefully lists available models for the user's API key if a configured model is unavailable.
+- **RateLimitError:** Notifies the user of rate limit caps and requests them to retry shortly.
+- **Invalid PDF Format:** Informs the candidate of PDF extraction failures.
+- **API Connection Error:** Alerts the user to check network connectivity.
+- **JSON Parsing Recovery:** Performs regex extraction on malformed LLM outputs to recover questions, scores, and feedback cleanly without crashing.

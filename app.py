@@ -28,6 +28,20 @@ def initialize_session_state():
         st.session_state.generated_data = None
     if "question_chats" not in st.session_state:
         st.session_state.question_chats = {}  # Store chat history per question
+    if "interview_mode" not in st.session_state:
+        st.session_state.interview_mode = "Question Generator"
+    if "interview_started" not in st.session_state:
+        st.session_state.interview_started = False
+    if "interview_completed" not in st.session_state:
+        st.session_state.interview_completed = False
+    if "current_question_idx" not in st.session_state:
+        st.session_state.current_question_idx = 0
+    if "mock_questions" not in st.session_state:
+        st.session_state.mock_questions = []
+    if "mock_history" not in st.session_state:
+        st.session_state.mock_history = []
+    if "current_evaluation" not in st.session_state:
+        st.session_state.current_evaluation = None
 
 
 def main():
@@ -62,6 +76,30 @@ def main():
         current_api_key = get_api_key()
         if not current_api_key:
             st.warning("⚠️ **Groq API Key Missing**\nConfigure `GROQ_API_KEY` in environment variables or Streamlit secrets.")
+        
+        st.markdown("### 🛠️ App Mode")
+        mode = st.selectbox(
+            "Select Mode",
+            options=["Question Generator", "Mock Interview"],
+            help="Choose between generating general/personalized questions, or starting an interactive mock interview."
+        )
+        st.session_state.interview_mode = mode
+
+        st.divider()
+
+        # Resume Upload
+        st.markdown("### 📄 Resume Parsing")
+        resume_file = st.file_uploader("Upload Resume (Optional PDF)", type=["pdf"])
+        resume_text = None
+        if resume_file:
+            from backend.resume_parser import ResumeParser
+            try:
+                resume_text = ResumeParser.extract_text(resume_file)
+                st.success("✅ Resume parsed successfully!")
+            except Exception as e:
+                st.error(f"❌ Parse error: {str(e)}")
+        
+        st.divider()
         
         # Job Role Input in a container
         with st.container():
@@ -128,8 +166,9 @@ def main():
         st.divider()
         
         # Generate Button with emphasis
+        button_label = "🚀 Start Mock Interview" if st.session_state.interview_mode == "Mock Interview" else "🚀 Generate Questions"
         generate_button = st.button(
-            "🚀 Generate Questions",
+            button_label,
             type="primary",
             use_container_width=True
         )
@@ -157,49 +196,268 @@ def main():
             st.error("❌ Please enter a job role!")
             return
         
-        # Clear previous chat history when generating new questions
-        st.session_state.question_chats = {}
-        
-        # Show loading
-        with st.spinner("🤖 Generating interview questions... This may take a few seconds."):
-            try:
-                # Retrieve current API key
-                api_key = get_api_key()
-                if not api_key:
-                    st.error("❌ **Groq API Key is missing!** Please set the `GROQ_API_KEY` environment variable, add it to Streamlit Secrets, or place it in a `Groq api key.txt` file.")
+        # Retrieve current API key
+        api_key = get_api_key()
+        if not api_key:
+            st.error("❌ **Groq API Key is missing!** Please set the `GROQ_API_KEY` environment variable, add it to Streamlit Secrets, or place it in a `Groq api key.txt` file.")
+            return
+
+        if st.session_state.interview_mode == "Mock Interview":
+            # Reset mock interview states
+            st.session_state.mock_questions = []
+            st.session_state.mock_history = []
+            st.session_state.current_question_idx = 0
+            st.session_state.interview_started = True
+            st.session_state.interview_completed = False
+            st.session_state.current_evaluation = None
+            
+            with st.spinner("🤖 Preparing your mock interview questions..."):
+                try:
+                    generator = QuestionGenerator(api_key)
+                    result = generator.generate(
+                        job_role=job_role,
+                        experience_level=experience_level,
+                        difficulty=difficulty,
+                        topic_focus=topic_focus,
+                        num_questions=num_questions,
+                        resume_text=resume_text
+                    )
+                    if "error" in result:
+                        st.error(f"❌ Error: {result['error']}")
+                        st.session_state.interview_started = False
+                        return
+                    
+                    st.session_state.mock_questions = result.get("questions", [])
+                    if not st.session_state.mock_questions:
+                        st.error("❌ No questions were generated. Please try again.")
+                        st.session_state.interview_started = False
+                        return
+                except Exception as e:
+                    st.error(f"❌ Failed to start mock interview: {str(e)}")
+                    st.session_state.interview_started = False
                     return
-                
-                # Initialize generator
-                generator = QuestionGenerator(api_key)
-                
-                # Generate questions
-                result = generator.generate(
-                    job_role=job_role,
-                    experience_level=experience_level,
-                    difficulty=difficulty,
-                    topic_focus=topic_focus,
-                    num_questions=num_questions
-                )
-                
-                # Check for errors
-                if "error" in result:
-                    st.error(f"❌ Error: {result['error']}")
+        else:
+            # Clear previous chat history when generating new questions
+            st.session_state.question_chats = {}
+            st.session_state.questions_generated = False
+            st.session_state.generated_data = None
+            
+            # Show loading
+            with st.spinner("🤖 Generating interview questions... This may take a few seconds."):
+                try:
+                    # Initialize generator
+                    generator = QuestionGenerator(api_key)
+                    
+                    # Generate questions
+                    result = generator.generate(
+                        job_role=job_role,
+                        experience_level=experience_level,
+                        difficulty=difficulty,
+                        topic_focus=topic_focus,
+                        num_questions=num_questions,
+                        resume_text=resume_text
+                    )
+                    
+                    # Check for errors
+                    if "error" in result:
+                        st.error(f"❌ Error: {result['error']}")
+                        return
+                    
+                    # Store in session state
+                    st.session_state.generated_data = result
+                    st.session_state.questions_generated = True
+                    # Initialize chat history for each question
+                    for idx in range(len(result.get("questions", []))):
+                        st.session_state.question_chats[f"q_{idx}"] = []
+                    
+                except Exception as e:
+                    st.error(f"❌ An error occurred: {str(e)}")
                     return
-                
-                # Store in session state
-                st.session_state.generated_data = result
-                st.session_state.questions_generated = True
-                # Initialize chat history for each question
-                for idx in range(len(result.get("questions", []))):
-                    st.session_state.question_chats[f"q_{idx}"] = []
                 
             except Exception as e:
                 st.error(f"❌ An error occurred: {str(e)}")
                 return
     
     # Display results
-    if st.session_state.questions_generated and st.session_state.generated_data:
+    if st.session_state.interview_mode == "Mock Interview" and st.session_state.interview_started:
+        display_mock_interview(job_role, experience_level)
+    elif st.session_state.interview_mode == "Question Generator" and st.session_state.questions_generated and st.session_state.generated_data:
         display_results(st.session_state.generated_data)
+
+
+def display_mock_interview(job_role: str, experience_level: str):
+    """Render Mock Interview UI"""
+    questions = st.session_state.mock_questions
+    idx = st.session_state.current_question_idx
+    
+    if not questions:
+        st.warning("No mock interview questions loaded. Please configure and start again.")
+        return
+        
+    st.markdown("## 🎙️ Mock Interview Session")
+    st.divider()
+    
+    # Check if completed
+    if st.session_state.interview_completed or idx >= len(questions):
+        st.session_state.interview_completed = True
+        render_interview_summary(job_role, experience_level)
+        return
+        
+    # Display Progress
+    st.markdown(f"### Question {idx + 1} of {len(questions)}")
+    progress_val = (idx) / len(questions)
+    st.progress(progress_val)
+    
+    current_q = questions[idx]
+    
+    # Display Question
+    st.info(f"**❓ {current_q['question']}**")
+    
+    # User Input
+    answer_input = st.text_area(
+        "Type your answer below:",
+        height=150,
+        placeholder="Enter your technical response here...",
+        key=f"mock_answer_input_{idx}"
+    )
+    
+    col1, col2 = st.columns([1, 4])
+    
+    with col1:
+        submit_btn = st.button("Submit Answer", type="primary", use_container_width=True)
+        
+    if submit_btn:
+        if not answer_input.strip():
+            st.warning("⚠️ Please provide an answer before submitting.")
+            return
+            
+        with st.spinner("🤖 Analyzing your answer..."):
+            try:
+                from backend.evaluator import AnswerEvaluator
+                api_key = get_api_key()
+                generator = QuestionGenerator(api_key)
+                evaluator = AnswerEvaluator(generator.groq_client)
+                
+                eval_res = evaluator.evaluate_answer(
+                    question=current_q["question"],
+                    expected_answer=current_q["answer"],
+                    candidate_answer=answer_input,
+                    job_role=job_role,
+                    experience_level=experience_level
+                )
+                
+                # Save to history
+                st.session_state.mock_history.append({
+                    "question": current_q["question"],
+                    "expected_answer": current_q["answer"],
+                    "candidate_answer": answer_input,
+                    "technical_accuracy": eval_res["technical_accuracy"],
+                    "relevance": eval_res["relevance"],
+                    "completeness": eval_res["completeness"],
+                    "clarity": eval_res["clarity"],
+                    "overall": eval_res["overall"],
+                    "feedback": eval_res["feedback"]
+                })
+                
+                st.session_state.current_evaluation = eval_res
+                
+            except Exception as e:
+                st.error(f"❌ Answer evaluation failed: {str(e)}")
+                
+    # Display evaluation if exists for the current question
+    if st.session_state.current_evaluation:
+        eval_res = st.session_state.current_evaluation
+        st.markdown("#### 📊 Evaluation Results")
+        
+        c1, c2, c3, c4, c5 = st.columns(5)
+        c1.metric("Overall", f"{eval_res['overall']}/10")
+        c2.metric("Accuracy", f"{eval_res['technical_accuracy']}/10")
+        c3.metric("Relevance", f"{eval_res['relevance']}/10")
+        c4.metric("Completeness", f"{eval_res['completeness']}/10")
+        c5.metric("Clarity", f"{eval_res['clarity']}/10")
+        
+        st.markdown(f"**💬 Feedback:**\n{eval_res['feedback']}")
+        
+        # Next / Finish Button
+        is_last = (idx == len(questions) - 1)
+        next_label = "Finish Interview" if is_last else "Next Question ➡️"
+        
+        next_btn = st.button(next_label, type="secondary")
+        if next_btn:
+            st.session_state.current_evaluation = None
+            if is_last:
+                st.session_state.interview_completed = True
+            else:
+                st.session_state.current_question_idx += 1
+            st.rerun()
+
+
+def render_interview_summary(job_role: str, experience_level: str):
+    """Render the summary view of mock interview"""
+    st.success("🎉 **Interview Session Completed!**")
+    
+    history = st.session_state.mock_history
+    if not history:
+        st.info("No answers submitted during this session.")
+        st.button("Start New Session", on_click=reset_mock_interview)
+        return
+        
+    num_attempted = len(history)
+    avg_score = sum(item["overall"] for item in history) / num_attempted
+    
+    col1, col2 = st.columns(2)
+    col1.metric("Questions Attempted", f"{num_attempted}")
+    col2.metric("Average Score", f"{avg_score:.1f}/10")
+    
+    # Request summary from AI
+    with st.spinner("🤖 Summarizing your overall strengths and improvements..."):
+        try:
+            from backend.evaluator import AnswerEvaluator
+            api_key = get_api_key()
+            generator = QuestionGenerator(api_key)
+            evaluator = AnswerEvaluator(generator.groq_client)
+            summary = evaluator.generate_interview_summary(history)
+        except Exception:
+            summary = {
+                "strengths": ["Completed the interview session successfully."],
+                "improvements": ["Review questions and practice concept-based responses."]
+            }
+            
+    st.markdown("### 🏆 Performance Summary")
+    st.divider()
+    
+    col_str, col_imp = st.columns(2)
+    with col_str:
+        st.markdown("#### 💪 Key Strengths")
+        for s in summary.get("strengths", []):
+            st.markdown(f"• {s}")
+            
+    with col_imp:
+        st.markdown("#### 📈 Areas to Improve")
+        for i in summary.get("improvements", []):
+            st.markdown(f"• {i}")
+            
+    st.markdown("---")
+    st.markdown("### 📖 Detailed Review")
+    
+    for idx, item in enumerate(history, 1):
+        with st.expander(f"Question {idx}: {item['question'][:60]}... (Score: {item['overall']}/10)"):
+            st.markdown(f"**Question:** {item['question']}")
+            st.markdown(f"**Ideal Answer:** {item['expected_answer']}")
+            st.markdown(f"**Your Answer:** {item['candidate_answer']}")
+            st.markdown(f"**Feedback:** {item['feedback']}")
+            st.markdown(f"**Scores:** Accuracy: {item['technical_accuracy']}/10, Relevance: {item['relevance']}/10, Completeness: {item['completeness']}/10, Clarity: {item['clarity']}/10")
+            
+    st.button("Start New Session", on_click=reset_mock_interview)
+
+
+def reset_mock_interview():
+    st.session_state.interview_started = False
+    st.session_state.interview_completed = False
+    st.session_state.current_question_idx = 0
+    st.session_state.mock_questions = []
+    st.session_state.mock_history = []
+    st.session_state.current_evaluation = None
 
 
 def display_results(data: dict):

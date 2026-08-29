@@ -27,7 +27,8 @@ class GroqClient:
         experience_level: str,
         difficulty: str,
         topic_focus: Optional[str] = None,
-        num_questions: Optional[int] = None
+        num_questions: Optional[int] = None,
+        resume_text: Optional[str] = None
     ) -> Dict:
         """
         Generate interview questions based on user inputs
@@ -46,7 +47,7 @@ class GroqClient:
         if num_questions is None:
             num_questions = 5  # Default if not specified
         prompt = self._build_prompt(
-            job_role, experience_level, difficulty, topic_focus, num_questions
+            job_role, experience_level, difficulty, topic_focus, num_questions, resume_text
         )
         
         try:
@@ -98,7 +99,8 @@ class GroqClient:
         experience_level: str,
         difficulty: str,
         topic_focus: Optional[str],
-        num_questions: int
+        num_questions: int,
+        resume_text: Optional[str] = None
     ) -> str:
         """Build the prompt for the API"""
         prompt = f"""Generate {num_questions} interview questions for a {job_role} position.
@@ -108,15 +110,34 @@ Difficulty: {difficulty}
 """
         if topic_focus:
             prompt += f"Topic: {topic_focus}\n"
-        
+            
+        if resume_text:
+            prompt += f"""
+Candidate's Resume Context:
+---
+{resume_text}
+---
+Please personalize the questions based on the candidate's skills, projects, and experience mentioned in the resume. Align the questions with the requested Job Role, Experience Level, and Topic. Do not generate questions about unrelated technologies.
+"""
+
         prompt += """
 Return ONLY valid JSON with NO markdown or code blocks:
-{"questions": [{"question": "...", "answer": "...", "explanation": "...", "tips": ["..."], "common_mistakes": ["..."], "follow_up_questions": ["..."]}]}
+{
+  "questions": [
+    {
+      "question": "...",
+      "answer": "...",
+      "explanation": "...",
+      "difficulty": "Medium",
+      "topic": "...",
+      "tips": "...",
+      "common_mistakes": "...",
+      "follow_up_question": "..."
+    }
+  ]
+}
 
 Requirements:
-- Each answer must be 2-3 sentences minimum
-- Include practical examples where relevant
-- Tips should be actionable (2-3 tips)
 - Common mistakes (1-2 realistic examples)
 - Follow-up questions (1-2 probing questions)
 - Match complexity to the difficulty level
@@ -187,13 +208,36 @@ Requirements:
                 cleaned_questions = []
                 for q in parsed["questions"]:
                     if isinstance(q, dict):
+                        # Normalize tips (string or list)
+                        tips_val = q.get("tips", [])
+                        if isinstance(tips_val, str):
+                            tips_list = [tips_val.strip()] if tips_val.strip() else []
+                        else:
+                            tips_list = self._ensure_list(tips_val)
+
+                        # Normalize common mistakes (string or list)
+                        mistakes_val = q.get("common_mistakes", [])
+                        if isinstance(mistakes_val, str):
+                            mistakes_list = [mistakes_val.strip()] if mistakes_val.strip() else []
+                        else:
+                            mistakes_list = self._ensure_list(mistakes_val)
+
+                        # Normalize follow-up questions (string or list)
+                        fu_val = q.get("follow_up_question", q.get("follow_up_questions", []))
+                        if isinstance(fu_val, str):
+                            fu_list = [fu_val.strip()] if fu_val.strip() else []
+                        else:
+                            fu_list = self._ensure_list(fu_val)
+
                         cleaned_q = {
                             "question": str(q.get("question", "")).strip(),
                             "answer": str(q.get("answer", "")).strip(),
                             "explanation": str(q.get("explanation", "")).strip(),
-                            "tips": self._ensure_list(q.get("tips", [])),
-                            "common_mistakes": self._ensure_list(q.get("common_mistakes", [])),
-                            "follow_up_questions": self._ensure_list(q.get("follow_up_questions", []))
+                            "difficulty": str(q.get("difficulty", "")).strip() or "Medium",
+                            "topic": str(q.get("topic", "")).strip() or "General",
+                            "tips": tips_list,
+                            "common_mistakes": mistakes_list,
+                            "follow_up_questions": fu_list
                         }
                         # Validate that question and answer are not empty
                         if cleaned_q["question"]:

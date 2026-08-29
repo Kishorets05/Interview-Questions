@@ -23,7 +23,8 @@ class QuestionGenerator:
         experience_level: str,
         difficulty: str,
         topic_focus: Optional[str] = None,
-        num_questions: Optional[int] = None
+        num_questions: Optional[int] = None,
+        resume_text: Optional[str] = None
     ) -> Dict:
         """
         Generate interview questions
@@ -34,6 +35,7 @@ class QuestionGenerator:
             difficulty: Difficulty level
             topic_focus: Optional topic focus
             num_questions: Number of questions
+            resume_text: Optional candidate resume text
             
         Returns:
             Dictionary with questions and metadata
@@ -44,7 +46,8 @@ class QuestionGenerator:
                 experience_level=experience_level,
                 difficulty=difficulty,
                 topic_focus=topic_focus,
-                num_questions=num_questions
+                num_questions=num_questions,
+                resume_text=resume_text
             )
             
             # Add metadata
