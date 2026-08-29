@@ -73,10 +73,16 @@ class GroqClient:
             # Parse the response (assuming structured format)
             return self._parse_response(content)
             
-        except AuthenticationError:
-            raise Exception("Invalid Groq API key. Please check your configuration and verify that your API key is correct and active.")
+        except AuthenticationError as e:
+            raise Exception(f"Invalid Groq API key: {e.message}. Please check your configuration and verify that your API key is correct and active.")
         except NotFoundError:
-            raise Exception(f"The model '{self.model}' is not available or you do not have access to it. Please check your account/model access.")
+            try:
+                models_list = self.client.models.list()
+                available_models = [m.id for m in models_list.data]
+                models_str = ", ".join(available_models)
+                raise Exception(f"The model '{self.model}' is not available or you do not have access to it. Available models for your API key: {models_str}")
+            except Exception as list_err:
+                raise Exception(f"The model '{self.model}' is not available or you do not have access to it. (Could not list models: {str(list_err)})")
         except RateLimitError:
             raise Exception("Groq API rate limit exceeded. Please wait a moment before trying again.")
         except APIConnectionError:
@@ -339,10 +345,16 @@ Please provide a helpful, detailed answer to their follow-up question. Be specif
             
             return response.choices[0].message.content
             
-        except AuthenticationError:
-            raise Exception("Invalid Groq API key. Please check your configuration.")
+        except AuthenticationError as e:
+            raise Exception(f"Invalid Groq API key: {e.message}")
         except NotFoundError:
-            raise Exception(f"The model '{self.model}' is not available.")
+            try:
+                models_list = self.client.models.list()
+                available_models = [m.id for m in models_list.data]
+                models_str = ", ".join(available_models)
+                raise Exception(f"The model '{self.model}' is not available. Available models for your API key: {models_str}")
+            except Exception as list_err:
+                raise Exception(f"The model '{self.model}' is not available. (Could not list models: {str(list_err)})")
         except RateLimitError:
             raise Exception("Groq API rate limit exceeded. Please try again in a moment.")
         except APIConnectionError:
