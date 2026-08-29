@@ -33,7 +33,7 @@ GROQ_API_KEY = get_api_key()
 
 
 # Model Configuration
-MODEL_NAME = "llama-3.3-70b-versatile"
+MODEL_NAME = "openai/gpt-oss-120b"
 
 # Default Settings
 DEFAULT_NUM_QUESTIONS = 3
